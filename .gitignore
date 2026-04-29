@@ -1,0 +1,29 @@
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+
+# Logs
+*.log
+logs/
+
+# Temp
+*.tmp
+*.swp
+*.swo
+*~

@@ -1,0 +1,126 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getPostingDetail } from '../api/search.js';
+import { getOrCreateSession } from '../api/chat.js';
+import { useAuth } from '../auth/AuthContext.jsx';
+
+export default function ListingDetail() {
+  const { postID } = useParams();
+  const { isGuest } = useAuth();
+  const navigate = useNavigate();
+
+  const [posting, setPosting] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setError(null);
+    getPostingDetail(postID)
+      .then(setPosting)
+      .catch((e) => setError(e?.response?.data?.error || 'Listing not found'));
+  }, [postID]);
+
+  const onMessageSeller = async () => {
+    setBusy(true);
+    try {
+      const session = await getOrCreateSession(Number(postID));
+      navigate(`/messages/${session.sessionID}`);
+    } catch (e) {
+      alert(e?.response?.data?.error || 'Could not open chat');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (!posting) return <div className="p-6 text-gray-500">Loading...</div>;
+
+  return (
+    <div className="grid gap-6 p-6 md:grid-cols-2">
+      <div>
+        <div className="flex aspect-square items-center justify-center rounded-xl bg-gray-100 text-gray-400">
+          {posting.photo ? (
+            <img src={posting.photo} alt={posting.title} className="h-full w-full rounded-xl object-cover" />
+          ) : (
+            <span>📷 Main Photo</span>
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="flex aspect-square items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-xs text-gray-400"
+            >
+              📷
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">{posting.title}</h1>
+        <div className="mt-1 text-3xl font-bold text-usc-cardinal">
+          ${Number(posting.price ?? 0).toFixed(2)}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-green-100 px-2 py-0.5 text-green-800">{posting.status}</span>
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">
+            {posting.category?.replaceAll('_', ' ')}
+          </span>
+        </div>
+
+        <div className="mt-5 rounded-md border border-gray-200 p-3">
+          <div className="text-xs uppercase tracking-wide text-gray-500">Seller</div>
+          <div className="mt-1 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold">
+              {(posting.sellerUsername || '?').slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900">{posting.sellerUsername}</div>
+              <div className="text-xs text-gray-600">
+                <span className="text-usc-gold">★</span>{' '}
+                {Number(posting.sellerRating ?? 0).toFixed(1)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="text-xs uppercase tracking-wide text-gray-500">Description</div>
+          <p className="mt-1 whitespace-pre-line text-gray-800">{posting.description || '—'}</p>
+        </div>
+
+        <div className="mt-6 space-y-2">
+          <button
+            type="button"
+            onClick={onMessageSeller}
+            disabled={isGuest || busy}
+            className="w-full rounded-md bg-usc-cardinal py-2 font-semibold text-white disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            {isGuest ? 'Sign In to Interact' : busy ? 'Opening...' : 'Message Seller'}
+          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={isGuest}
+              className="rounded-md border border-gray-300 py-2 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              ♡ Save Listing
+            </button>
+            <button
+              type="button"
+              disabled={isGuest}
+              className="rounded-md border border-gray-300 py-2 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              ⚑ Report
+            </button>
+          </div>
+          {isGuest && (
+            <p className="pt-1 text-center text-xs text-gray-500">Sign in to interact with this listing</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
