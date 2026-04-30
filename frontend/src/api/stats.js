@@ -23,3 +23,7 @@ export async function getChatForPost(postID) {
 export async function removeSavedPosting(postID) {
   await api.delete(`/stats/saved-postings/${postID}`);
 }
+
+export async function saveListing(postID) {
+  await api.post('/stats/saved', { postID });
+}

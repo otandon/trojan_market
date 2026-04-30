@@ -119,6 +119,24 @@ public class StatsManager {
     }
 
     /**
+     * Idempotent — INSERT IGNORE so re-saving the same posting does not error.
+     */
+    public void savePosting(Integer userID, Integer postID) {
+        if (userID == null) {
+            throw new ForbiddenException("Authentication required");
+        }
+        String sql = "INSERT IGNORE INTO SavedPostings (userID, postID) VALUES (?, ?)";
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userID);
+            ps.setInt(2, postID);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to save posting", e);
+        }
+    }
+
+    /**
      * Idempotent — returns silently whether or not a row was deleted.
      */
     public void removeSavedPosting(Integer userID, Integer postID) {

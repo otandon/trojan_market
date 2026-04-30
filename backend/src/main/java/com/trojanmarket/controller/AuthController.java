@@ -55,11 +55,20 @@ public class AuthController {
     }
 
     private User parseSSOToken(String token) {
-        // TODO: integrate with USC SSO IdP. Parse the SAML assertion or OIDC ID token
-        //       returned from USC's identity provider and extract the verified email
-        //       (eduPersonPrincipalName / mail) and any other attributes. Until that
-        //       integration is wired up, the token body is treated as the email so
-        //       end-to-end auth flow can be exercised in dev.
+        // TODO(USC SSO): Wire up the real Shibboleth/SAML2 (or OIDC) integration here.
+        //   The full flow is:
+        //     1. Frontend hits GET /auth/sso/start, which 302-redirects the browser to
+        //        https://shibboleth.usc.edu/idp/profile/SAML2/Redirect/SSO with an
+        //        AuthnRequest signed by our SP keypair (entityID: app.usc.sso.entity-id).
+        //     2. User authenticates against USC + completes Duo MFA at the IdP.
+        //     3. IdP HTTP-POSTs a signed SAMLResponse back to this callback URL
+        //        (app.usc.sso.callback-url).
+        //     4. We must verify the signature against the IdP metadata
+        //        (app.usc.sso.idp-metadata-url), check audience/conditions/replay,
+        //        then extract the `mail` / `eduPersonPrincipalName` attribute as the
+        //        verified @usc.edu email.
+        //   Until that is wired up the dev environment should use POST /auth/dev-login
+        //   (see AuthDevController, gated by @Profile("dev")) instead of this endpoint.
         User user = new User();
         user.setEmail(token == null ? null : token.trim());
         return user;

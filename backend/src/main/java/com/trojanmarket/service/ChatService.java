@@ -51,7 +51,7 @@ public class ChatService {
         }
 
         return sessionRepository.findByPostIDAndBuyerID(postID, buyerID)
-                .map(this::toSessionDTO)
+                .map(s -> toSessionDTO(s, lookupTitle(s.getPostID())))
                 .orElseGet(() -> {
                     Posting posting = postingRepository.findById(postID)
                             .orElseThrow(() -> new EntityNotFoundException("Posting not found: " + postID));
@@ -63,14 +63,24 @@ public class ChatService {
                             .buyerID(buyerID)
                             .sellerID(posting.getSellerID())
                             .build();
-                    return toSessionDTO(sessionRepository.save(session));
+                    return toSessionDTO(sessionRepository.save(session), posting.getTitle());
                 });
     }
 
     public List<ChatSessionDTO> getMySessions(Integer userID) {
-        return sessionRepository.findByBuyerIDOrSellerID(userID, userID).stream()
-                .map(this::toSessionDTO)
+        List<ChatSession> sessions = sessionRepository.findByBuyerIDOrSellerID(userID, userID);
+        java.util.Set<Integer> postIDs = sessions.stream()
+                .map(ChatSession::getPostID)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.Map<Integer, String> titlesByPost = postingRepository.findAllById(postIDs).stream()
+                .collect(java.util.stream.Collectors.toMap(Posting::getPostID, Posting::getTitle));
+        return sessions.stream()
+                .map(s -> toSessionDTO(s, titlesByPost.get(s.getPostID())))
                 .toList();
+    }
+
+    private String lookupTitle(Integer postID) {
+        return postingRepository.findById(postID).map(Posting::getTitle).orElse(null);
     }
 
     @Transactional
@@ -120,10 +130,11 @@ public class ChatService {
         return session;
     }
 
-    private ChatSessionDTO toSessionDTO(ChatSession s) {
+    private ChatSessionDTO toSessionDTO(ChatSession s, String postTitle) {
         return ChatSessionDTO.builder()
                 .sessionID(s.getSessionID())
                 .postID(s.getPostID())
+                .postTitle(postTitle)
                 .buyerID(s.getBuyerID())
                 .sellerID(s.getSellerID())
                 .createdAt(s.getCreatedAt())

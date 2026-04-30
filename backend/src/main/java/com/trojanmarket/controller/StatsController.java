@@ -9,10 +9,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/stats")
@@ -46,6 +49,17 @@ public class StatsController {
     public ResponseEntity<List<MessageDTO>> chatForPost(@PathVariable Integer postID) {
         Integer userID = SecurityUtils.requireCurrentUserID();
         return ResponseEntity.ok(statsManager.getChat(postID, userID));
+    }
+
+    @PostMapping("/saved")
+    public ResponseEntity<Void> saveListing(@RequestBody Map<String, Integer> body) {
+        Integer userID = SecurityUtils.requireCurrentUserID();
+        Integer postID = body.get("postID");
+        if (postID == null) {
+            throw new IllegalArgumentException("postID is required");
+        }
+        statsManager.savePosting(userID, postID);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/saved-postings/{postID}")

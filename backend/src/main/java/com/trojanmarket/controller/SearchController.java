@@ -3,6 +3,7 @@ package com.trojanmarket.controller;
 import com.trojanmarket.dto.PostingDetailDTO;
 import com.trojanmarket.dto.PostingSummaryDTO;
 import com.trojanmarket.manager.SearchManager;
+import com.trojanmarket.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,7 +31,10 @@ public class SearchController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false, defaultValue = "relevant") String sortBy) {
-        return ResponseEntity.ok(searchManager.searchPostings(q, category, minPrice, maxPrice, sortBy));
+        // Logged-in users never see their own listings in discover. Guests see everything.
+        Integer excludeSellerID = SecurityUtils.currentUserID();
+        return ResponseEntity.ok(
+                searchManager.searchPostings(q, category, minPrice, maxPrice, sortBy, excludeSellerID));
     }
 
     @GetMapping("/categories")

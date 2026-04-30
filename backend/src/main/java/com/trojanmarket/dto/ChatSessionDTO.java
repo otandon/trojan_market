@@ -17,6 +17,7 @@ public class ChatSessionDTO {
 
     private Integer sessionID;
     private Integer postID;
+    private String postTitle;
     private Integer buyerID;
     private Integer sellerID;
     private LocalDateTime createdAt;

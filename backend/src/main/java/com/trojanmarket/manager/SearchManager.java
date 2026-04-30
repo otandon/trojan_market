@@ -39,13 +39,14 @@ public class SearchManager {
                                                   String category,
                                                   BigDecimal minPrice,
                                                   BigDecimal maxPrice,
-                                                  String sortBy) {
+                                                  String sortBy,
+                                                  Integer excludeSellerID) {
         if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
             throw new IllegalArgumentException("minPrice cannot exceed maxPrice");
         }
 
         List<String> keywords = cleanKeywords(query);
-        List<RawPost> raw = sqlRetrieve(keywords, category, minPrice, maxPrice);
+        List<RawPost> raw = sqlRetrieve(keywords, category, minPrice, maxPrice, excludeSellerID);
 
         List<Scored> scored = new ArrayList<>(raw.size());
         for (RawPost rp : raw) {
@@ -129,7 +130,8 @@ public class SearchManager {
     private List<RawPost> sqlRetrieve(List<String> keywords,
                                       String category,
                                       BigDecimal minPrice,
-                                      BigDecimal maxPrice) {
+                                      BigDecimal maxPrice,
+                                      Integer excludeSellerID) {
         StringBuilder sql = new StringBuilder("""
                 SELECT p.postID, p.title, p.description, p.price, p.status, p.postTime, p.sellerID,
                        u.username AS sellerUsername,
@@ -163,6 +165,10 @@ public class SearchManager {
         if (maxPrice != null) {
             sql.append(" AND p.price <= ?");
             params.add(maxPrice);
+        }
+        if (excludeSellerID != null) {
+            sql.append(" AND p.sellerID != ?");
+            params.add(excludeSellerID);
         }
 
         try (Connection conn = dataSource.getConnection();

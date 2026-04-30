@@ -115,7 +115,7 @@ export default function Messages() {
                   s.sessionID === activeID ? 'bg-usc-cardinal/5' : ''
                 }`}
               >
-                <div className="font-semibold text-gray-900">Listing #{s.postID}</div>
+                <div className="font-semibold text-gray-900">{s.postTitle || `Listing #${s.postID}`}</div>
                 <div className="text-xs text-gray-500">
                   {s.buyerID === user?.userID ? `Seller #${s.sellerID}` : `Buyer #${s.buyerID}`}
                 </div>
@@ -129,10 +129,14 @@ export default function Messages() {
         {activeID ? (
           <>
             <div className="border-b border-gray-200 px-4 py-3 text-sm">
-              <div className="font-semibold">Listing #{activeSession?.postID ?? '—'}</div>
-              <div className="text-xs text-gray-500">
-                Session #{activeID}
+              <div className="font-semibold">
+                {activeSession?.postTitle || (activeSession?.postID ? `Listing #${activeSession.postID}` : '—')}
               </div>
+              {activeSession?.postID && (
+                <div className="text-xs text-gray-500">
+                  Listing #{activeSession.postID}
+                </div>
+              )}
             </div>
             <div ref={scrollerRef} className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-2">
               {messages.map((m) => {

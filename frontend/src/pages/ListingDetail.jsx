@@ -2,22 +2,31 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getPostingDetail } from '../api/search.js';
 import { getOrCreateSession } from '../api/chat.js';
+import { saveListing } from '../api/stats.js';
+import { submitReport } from '../api/reports.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { apiErrorMessage, useToast } from '../components/Toast.jsx';
 
 export default function ListingDetail() {
   const { postID } = useParams();
   const { isGuest } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [posting, setPosting] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [savePending, setSavePending] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     setError(null);
     getPostingDetail(postID)
       .then(setPosting)
-      .catch((e) => setError(e?.response?.data?.error || 'Listing not found'));
+      .catch((e) => setError(apiErrorMessage(e, 'Listing not found')));
   }, [postID]);
 
   const onMessageSeller = async () => {
@@ -26,9 +35,42 @@ export default function ListingDetail() {
       const session = await getOrCreateSession(Number(postID));
       navigate(`/messages/${session.sessionID}`);
     } catch (e) {
-      alert(e?.response?.data?.error || 'Could not open chat');
+      toast.error(apiErrorMessage(e, 'Could not open chat'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onSave = async () => {
+    if (savePending) return;
+    setSavePending(true);
+    try {
+      await saveListing(Number(postID));
+      setSaved(true);
+      toast.success('Saved to your list');
+    } catch (e) {
+      toast.error(apiErrorMessage(e, 'Could not save listing'));
+    } finally {
+      setSavePending(false);
+    }
+  };
+
+  const onReportSubmit = async (e) => {
+    e.preventDefault();
+    setReportSubmitting(true);
+    try {
+      await submitReport({
+        type: 'POSTING',
+        targetID: Number(postID),
+        reason: reportReason.trim() || null,
+      });
+      toast.success('Report submitted. Thank you.');
+      setReportOpen(false);
+      setReportReason('');
+    } catch (err) {
+      toast.error(apiErrorMessage(err, 'Could not submit report'));
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -103,13 +145,15 @@ export default function ListingDetail() {
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              disabled={isGuest}
+              onClick={onSave}
+              disabled={isGuest || savePending || saved}
               className="rounded-md border border-gray-300 py-2 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
             >
-              ♡ Save Listing
+              {saved ? '✓ Saved' : savePending ? 'Saving...' : '♡ Save Listing'}
             </button>
             <button
               type="button"
+              onClick={() => setReportOpen(true)}
               disabled={isGuest}
               className="rounded-md border border-gray-300 py-2 text-sm font-semibold text-gray-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
             >
@@ -121,6 +165,63 @@ export default function ListingDetail() {
           )}
         </div>
       </div>
+
+      {reportOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !reportSubmitting && setReportOpen(false)}
+        >
+          <form
+            onSubmit={onReportSubmit}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl bg-white p-5"
+          >
+            <div className="flex items-start justify-between">
+              <h2 className="text-lg font-semibold">Report this listing</h2>
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                disabled={reportSubmitting}
+                className="text-gray-500"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Tell us what's wrong with this listing. Reports help keep Trojan Market safe.
+            </p>
+            <label className="mt-3 block text-sm">
+              <span className="font-semibold">Reason (optional)</span>
+              <textarea
+                rows={4}
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                maxLength={1000}
+                placeholder="e.g. prohibited item, suspected scam, wrong category..."
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                disabled={reportSubmitting}
+                className="rounded border border-gray-300 px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={reportSubmitting}
+                className="rounded bg-usc-cardinal px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {reportSubmitting ? 'Submitting...' : 'Submit report'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

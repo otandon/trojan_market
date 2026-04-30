@@ -3,20 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { getCategories } from '../api/search.js';
 import { createPosting } from '../api/postings.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { apiErrorMessage, useToast } from '../components/Toast.jsx';
 
 const STEPS = ['Details', 'Photos', 'Review'];
+const CONDITIONS = ['NEW', 'LIKE_NEW', 'GOOD', 'FAIR', 'POOR'];
 
 export default function CreatePosting() {
   const { isGuest } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [step, setStep] = useState(0);
   const [categories, setCategories] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     title: '',
     category: '',
     price: '',
+    condition: '',
     description: '',
     pickupLocation: '',
     photos: [],
@@ -30,14 +35,59 @@ export default function CreatePosting() {
     return <div className="p-6 text-gray-600">Sign in to create a listing.</div>;
   }
 
-  const update = (patch) => setForm((f) => ({ ...f, ...patch }));
+  const update = (patch) => {
+    setForm((f) => ({ ...f, ...patch }));
+    // Clear field-level errors as the user fixes them.
+    setErrors((prev) => {
+      const next = { ...prev };
+      Object.keys(patch).forEach((k) => delete next[k]);
+      return next;
+    });
+  };
 
   const onPhotos = (e) => {
     const files = Array.from(e.target.files || []);
     update({ photos: files });
   };
 
+  const validateDetails = () => {
+    const e = {};
+    if (!form.title.trim()) e.title = 'Title is required';
+    if (!form.category) e.category = 'Category is required';
+    if (form.price === '' || form.price === null || Number.isNaN(Number(form.price))) {
+      e.price = 'Price is required';
+    } else if (Number(form.price) < 0) {
+      e.price = 'Price must be 0 or greater';
+    }
+    if (!form.condition) e.condition = 'Condition is required';
+    return e;
+  };
+
+  const validatePhotos = () => {
+    const e = {};
+    if (!form.photos || form.photos.length === 0) {
+      e.photos = 'Please upload at least one photo';
+    }
+    return e;
+  };
+
+  const onNext = () => {
+    const stepErrors = step === 0 ? validateDetails() : step === 1 ? validatePhotos() : {};
+    setErrors(stepErrors);
+    if (Object.keys(stepErrors).length === 0) {
+      setStep((s) => s + 1);
+    }
+  };
+
   const submit = async () => {
+    const detailErrors = validateDetails();
+    const photoErrors = validatePhotos();
+    const all = { ...detailErrors, ...photoErrors };
+    if (Object.keys(all).length > 0) {
+      setErrors(all);
+      toast.error('Please fix the errors before publishing');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await createPosting({
@@ -45,14 +95,25 @@ export default function CreatePosting() {
         description: form.description || null,
         category: form.category,
         price: Number(form.price),
+        // condition is client-side only for now (backend schema migration TODO).
+        condition: form.condition,
       });
+      toast.success('Listing published');
       navigate(`/listings/${res.postID}`);
     } catch (e) {
-      alert(e?.response?.data?.error || 'Could not publish listing');
+      toast.error(apiErrorMessage(e, 'Could not publish listing'));
     } finally {
       setSubmitting(false);
     }
   };
+
+  const fieldClass = (field) =>
+    `mt-1 w-full rounded border px-3 py-2 ${errors[field] ? 'border-red-500' : 'border-gray-300'}`;
+
+  const FieldError = ({ field }) =>
+    errors[field] ? (
+      <span className="mt-1 block text-xs text-red-600">{errors[field]}</span>
+    ) : null;
 
   return (
     <div className="p-6">
@@ -77,22 +138,24 @@ export default function CreatePosting() {
               <input
                 value={form.title}
                 onChange={(e) => update({ title: e.target.value })}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={fieldClass('title')}
                 placeholder="e.g. Intro to CS Textbook"
               />
+              <FieldError field="title" />
             </label>
             <label className="col-span-1 block text-sm">
               <span className="font-semibold">Category *</span>
               <select
                 value={form.category}
                 onChange={(e) => update({ category: e.target.value })}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={fieldClass('category')}
               >
                 <option value="">Select a category</option>
                 {categories.map((c) => (
                   <option key={c} value={c}>{c.replaceAll('_', ' ')}</option>
                 ))}
               </select>
+              <FieldError field="category" />
             </label>
             <label className="col-span-1 block text-sm">
               <span className="font-semibold">Price *</span>
@@ -102,11 +165,26 @@ export default function CreatePosting() {
                 step="0.01"
                 value={form.price}
                 onChange={(e) => update({ price: e.target.value })}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2"
+                className={fieldClass('price')}
                 placeholder="$ 0.00"
               />
+              <FieldError field="price" />
             </label>
             <label className="col-span-1 block text-sm">
+              <span className="font-semibold">Condition *</span>
+              <select
+                value={form.condition}
+                onChange={(e) => update({ condition: e.target.value })}
+                className={fieldClass('condition')}
+              >
+                <option value="">Select a condition</option>
+                {CONDITIONS.map((c) => (
+                  <option key={c} value={c}>{c.replaceAll('_', ' ')}</option>
+                ))}
+              </select>
+              <FieldError field="condition" />
+            </label>
+            <label className="col-span-2 block text-sm">
               <span className="font-semibold">Pickup Location</span>
               <input
                 value={form.pickupLocation}
@@ -130,8 +208,17 @@ export default function CreatePosting() {
 
         {step === 1 && (
           <div>
-            <label className="block text-sm font-semibold">Photos (minimum 1)</label>
-            <input type="file" accept="image/*" multiple onChange={onPhotos} className="mt-2" />
+            <label className="block text-sm font-semibold">Photos * (at least 1 required)</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={onPhotos}
+              className={`mt-2 block ${errors.photos ? 'rounded border border-red-500 p-1' : ''}`}
+            />
+            {errors.photos && (
+              <span className="mt-1 block text-xs text-red-600">{errors.photos}</span>
+            )}
             <div className="mt-3 grid grid-cols-4 gap-2">
               {form.photos.map((f, i) => (
                 <div key={i} className="rounded border border-gray-200 p-2 text-xs">
@@ -150,6 +237,7 @@ export default function CreatePosting() {
             <div><span className="font-semibold">Title:</span> {form.title}</div>
             <div><span className="font-semibold">Category:</span> {form.category || '—'}</div>
             <div><span className="font-semibold">Price:</span> ${form.price || '0.00'}</div>
+            <div><span className="font-semibold">Condition:</span> {form.condition || '—'}</div>
             <div><span className="font-semibold">Pickup:</span> {form.pickupLocation || '—'}</div>
             <div><span className="font-semibold">Description:</span> {form.description || '—'}</div>
             <div><span className="font-semibold">Photos:</span> {form.photos.length}</div>
@@ -168,7 +256,7 @@ export default function CreatePosting() {
           {step < STEPS.length - 1 ? (
             <button
               type="button"
-              onClick={() => setStep((s) => s + 1)}
+              onClick={onNext}
               className="rounded bg-usc-cardinal px-4 py-2 text-sm font-semibold text-white"
             >
               Next: {STEPS[step + 1]} →
@@ -177,7 +265,7 @@ export default function CreatePosting() {
             <button
               type="button"
               onClick={submit}
-              disabled={submitting || !form.title || !form.category || !form.price}
+              disabled={submitting}
               className="rounded bg-usc-cardinal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {submitting ? 'Publishing...' : 'Publish'}

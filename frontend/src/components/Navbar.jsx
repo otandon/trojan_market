@@ -1,9 +1,9 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export default function Navbar() {
-  const { user, isGuest, logout, loginWithSSOToken } = useAuth();
+  const { user, isGuest, logout } = useAuth();
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
@@ -11,17 +11,6 @@ export default function Navbar() {
     e.preventDefault();
     const q = search.trim();
     navigate(q ? `/?q=${encodeURIComponent(q)}` : '/');
-  };
-
-  const onSignIn = async () => {
-    // TODO: replace with the real USC SSO redirect once IdP is wired up.
-    const stub = window.prompt('Sign in (dev): enter your @usc.edu email');
-    if (!stub) return;
-    try {
-      await loginWithSSOToken(stub);
-    } catch (err) {
-      alert(err?.response?.data?.error || 'Sign-in failed');
-    }
   };
 
   return (
@@ -41,6 +30,17 @@ export default function Navbar() {
           />
         </form>
 
+        {!isGuest && (
+          <NavLink
+            to="/messages"
+            className={({ isActive }) =>
+              `text-sm font-semibold ${isActive ? 'text-usc-cardinal' : 'text-gray-700 hover:text-usc-cardinal'}`
+            }
+          >
+            Messages
+          </NavLink>
+        )}
+
         <Link
           to="/notifications"
           aria-label="Notifications"
@@ -50,13 +50,12 @@ export default function Navbar() {
         </Link>
 
         {isGuest ? (
-          <button
-            type="button"
-            onClick={onSignIn}
+          <Link
+            to="/login"
             className="rounded-full border border-usc-cardinal px-4 py-1.5 text-sm font-semibold text-usc-cardinal hover:bg-usc-cardinal hover:text-white"
           >
             Sign In
-          </button>
+          </Link>
         ) : (
           <Link
             to={`/users/${user.userID}`}

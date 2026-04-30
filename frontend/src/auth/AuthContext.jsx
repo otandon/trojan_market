@@ -3,6 +3,19 @@ import api, { TOKEN_KEY } from '../api/client.js';
 
 const AuthContext = createContext(null);
 
+function applyAuthResponse(data, setUser) {
+  if (data?.token) {
+    localStorage.setItem(TOKEN_KEY, data.token);
+    setUser({
+      userID: data.userID,
+      username: data.username,
+      email: data.email,
+      isVerified: data.isVerified,
+    });
+  }
+  return data;
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
@@ -29,18 +42,16 @@ export function AuthProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Real USC SSO callback — backend validates the SAML/OIDC token and returns a JWT.
   const loginWithSSOToken = useCallback(async (token) => {
     const { data } = await api.post('/auth/sso/callback', { token });
-    if (data?.token) {
-      localStorage.setItem(TOKEN_KEY, data.token);
-      setUser({
-        userID: data.userID,
-        username: data.username,
-        email: data.email,
-        isVerified: data.isVerified,
-      });
-    }
-    return data;
+    return applyAuthResponse(data, setUser);
+  }, []);
+
+  // Dev-only mock SSO. Backend gates POST /auth/dev-login behind @Profile("dev").
+  const loginWithDevEmail = useCallback(async (email) => {
+    const { data } = await api.post('/auth/dev-login', { email });
+    return applyAuthResponse(data, setUser);
   }, []);
 
   const logout = useCallback(async () => {
@@ -54,8 +65,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, isGuest: !user, loginWithSSOToken, logout, refresh }),
-    [user, ready, loginWithSSOToken, logout, refresh],
+    () => ({ user, ready, isGuest: !user, loginWithSSOToken, loginWithDevEmail, logout, refresh }),
+    [user, ready, loginWithSSOToken, loginWithDevEmail, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
