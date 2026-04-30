@@ -1,8 +1,12 @@
 package com.trojanmarket.controller;
 
 import com.trojanmarket.dto.AuthResponseDTO;
-import com.trojanmarket.dto.SSOCallbackRequest;
+import com.trojanmarket.dto.LoginRequest;
+import com.trojanmarket.dto.ResendVerificationRequest;
+import com.trojanmarket.dto.SignupRequest;
+import com.trojanmarket.dto.VerifyEmailRequest;
 import com.trojanmarket.entity.User;
+import com.trojanmarket.repository.UserRepository;
 import com.trojanmarket.security.AuthenticatedUser;
 import com.trojanmarket.security.ForbiddenException;
 import com.trojanmarket.service.AuthService;
@@ -17,21 +21,43 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
 
     private final AuthService authService;
+    private final UserRepository userRepository;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UserRepository userRepository) {
         this.authService = authService;
+        this.userRepository = userRepository;
     }
 
-    @PostMapping("/sso/callback")
-    public ResponseEntity<AuthResponseDTO> handleSSOCallback(@Valid @RequestBody SSOCallbackRequest request) {
-        User userFromSSO = parseSSOToken(request.getToken());
-        AuthResponseDTO response = authService.handleSSOLogin(userFromSSO);
-        return ResponseEntity.ok(response);
+    @PostMapping("/signup")
+    public ResponseEntity<Map<String, String>> signup(@Valid @RequestBody SignupRequest req) {
+        authService.signup(req);
+        return ResponseEntity.ok(Map.of(
+                "status", "verification_required",
+                "email", req.getEmail().trim().toLowerCase(),
+                "message", "We sent a 6-digit verification code to your USC email."));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<AuthResponseDTO> verifyEmail(@Valid @RequestBody VerifyEmailRequest req) {
+        return ResponseEntity.ok(authService.verifyEmail(req));
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Map<String, String>> resendVerification(@Valid @RequestBody ResendVerificationRequest req) {
+        authService.resendVerification(req.getEmail());
+        return ResponseEntity.ok(Map.of("status", "sent"));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponseDTO> login(@Valid @RequestBody LoginRequest req) {
+        return ResponseEntity.ok(authService.login(req));
     }
 
     @GetMapping("/me")
@@ -39,10 +65,16 @@ public class AuthController {
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser principal)) {
             throw new ForbiddenException("Not authenticated");
         }
+        // Pull fresh fields from the DB so /auth/me reflects the latest profile state.
+        User user = userRepository.findById(principal.getUserID())
+                .orElseThrow(() -> new ForbiddenException("Account no longer exists"));
         return ResponseEntity.ok(AuthResponseDTO.builder()
-                .userID(principal.getUserID())
-                .username(principal.getUsername())
-                .email(principal.getEmail())
+                .userID(user.getUserID())
+                .username(user.getUsername())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .isVerified(user.getIsVerified())
                 .build());
     }
 
@@ -52,25 +84,5 @@ public class AuthController {
         // The client must also discard the token from localStorage.
         SecurityContextHolder.clearContext();
         return ResponseEntity.noContent().build();
-    }
-
-    private User parseSSOToken(String token) {
-        // TODO(USC SSO): Wire up the real Shibboleth/SAML2 (or OIDC) integration here.
-        //   The full flow is:
-        //     1. Frontend hits GET /auth/sso/start, which 302-redirects the browser to
-        //        https://shibboleth.usc.edu/idp/profile/SAML2/Redirect/SSO with an
-        //        AuthnRequest signed by our SP keypair (entityID: app.usc.sso.entity-id).
-        //     2. User authenticates against USC + completes Duo MFA at the IdP.
-        //     3. IdP HTTP-POSTs a signed SAMLResponse back to this callback URL
-        //        (app.usc.sso.callback-url).
-        //     4. We must verify the signature against the IdP metadata
-        //        (app.usc.sso.idp-metadata-url), check audience/conditions/replay,
-        //        then extract the `mail` / `eduPersonPrincipalName` attribute as the
-        //        verified @usc.edu email.
-        //   Until that is wired up the dev environment should use POST /auth/dev-login
-        //   (see AuthDevController, gated by @Profile("dev")) instead of this endpoint.
-        User user = new User();
-        user.setEmail(token == null ? null : token.trim());
-        return user;
     }
 }

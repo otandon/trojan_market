@@ -3,15 +3,21 @@ import api, { TOKEN_KEY } from '../api/client.js';
 
 const AuthContext = createContext(null);
 
+function userFromAuthResponse(data) {
+  return {
+    userID: data.userID,
+    username: data.username,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    email: data.email,
+    isVerified: data.isVerified,
+  };
+}
+
 function applyAuthResponse(data, setUser) {
   if (data?.token) {
     localStorage.setItem(TOKEN_KEY, data.token);
-    setUser({
-      userID: data.userID,
-      username: data.username,
-      email: data.email,
-      isVerified: data.isVerified,
-    });
+    setUser(userFromAuthResponse(data));
   }
   return data;
 }
@@ -29,7 +35,7 @@ export function AuthProvider({ children }) {
     }
     try {
       const { data } = await api.get('/auth/me');
-      setUser(data);
+      setUser(userFromAuthResponse(data));
     } catch {
       localStorage.removeItem(TOKEN_KEY);
       setUser(null);
@@ -42,15 +48,23 @@ export function AuthProvider({ children }) {
     refresh();
   }, [refresh]);
 
-  // Real USC SSO callback — backend validates the SAML/OIDC token and returns a JWT.
-  const loginWithSSOToken = useCallback(async (token) => {
-    const { data } = await api.post('/auth/sso/callback', { token });
+  const signup = useCallback(async ({ firstName, lastName, email, password }) => {
+    const { data } = await api.post('/auth/signup', { firstName, lastName, email, password });
+    return data;
+  }, []);
+
+  const verifyEmail = useCallback(async ({ email, code }) => {
+    const { data } = await api.post('/auth/verify-email', { email, code });
     return applyAuthResponse(data, setUser);
   }, []);
 
-  // Dev-only mock SSO. Backend gates POST /auth/dev-login behind @Profile("dev").
-  const loginWithDevEmail = useCallback(async (email) => {
-    const { data } = await api.post('/auth/dev-login', { email });
+  const resendVerification = useCallback(async (email) => {
+    const { data } = await api.post('/auth/resend-verification', { email });
+    return data;
+  }, []);
+
+  const login = useCallback(async ({ email, password }) => {
+    const { data } = await api.post('/auth/login', { email, password });
     return applyAuthResponse(data, setUser);
   }, []);
 
@@ -65,8 +79,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, ready, isGuest: !user, loginWithSSOToken, loginWithDevEmail, logout, refresh }),
-    [user, ready, loginWithSSOToken, loginWithDevEmail, logout, refresh],
+    () => ({
+      user, ready, isGuest: !user,
+      signup, verifyEmail, resendVerification, login, logout, refresh,
+    }),
+    [user, ready, signup, verifyEmail, resendVerification, login, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

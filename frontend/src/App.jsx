@@ -4,6 +4,8 @@ import { ToastProvider } from './components/Toast.jsx';
 import HomeBrowse from './pages/HomeBrowse.jsx';
 import ListingDetail from './pages/ListingDetail.jsx';
 import Login from './pages/Login.jsx';
+import Signup from './pages/Signup.jsx';
+import VerifyEmail from './pages/VerifyEmail.jsx';
 import Messages from './pages/Messages.jsx';
 import CreatePosting from './pages/CreatePosting.jsx';
 import UserProfile from './pages/UserProfile.jsx';
@@ -19,6 +21,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomeBrowse />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/verify" element={<VerifyEmail />} />
             <Route path="/listings/:postID" element={<ListingDetail />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/messages/:sessionID" element={<Messages />} />

@@ -1,5 +1,6 @@
 package com.trojanmarket.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -10,8 +11,12 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class SSOCallbackRequest {
+public class LoginRequest {
 
     @NotBlank
-    private String token;
+    @Email
+    private String email;
+
+    @NotBlank
+    private String password;
 }

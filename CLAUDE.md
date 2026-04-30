@@ -9,7 +9,8 @@ Waterfall process. Academic submission.
 - Backend: Spring Boot 3.x (Java 17), hosted on Railway
 - Database: MySQL 8.0+
 - Real-time: Spring WebSocket + STOMP over SockJS
-- Auth: USC SSO + Duo MFA → JWT
+- Auth: email/password (BCrypt) + email verification (6-digit code, 15-min TTL) → JWT
+- Email: SMTP via Spring Mail (Gmail SMTP for `trojanmarket.noreply@gmail.com`); falls back to logging the code when SMTP isn't configured
 - Migrations: Flyway
 - Containerization: Docker + docker-compose
 - CI/CD: GitHub Actions
@@ -34,7 +35,7 @@ SavedPostings, Notifications, NotificationPreferences, Reviews
 
 ## Exact Column Names — match these precisely in all entity classes and queries
 
-Users: userID, username, password, email, isVerified, review, reviewCount, is_active
+Users: userID, username, password, firstName, lastName, email, isVerified, verificationCode, verificationCodeExpiresAt, review, reviewCount, is_active
 Postings: postID, sellerID, title, description, category, status, price, postTime, is_active
 ChatSessions: sessionID, postID, buyerID, sellerID, created_at
 Messages: messageID, sessionID, senderID, messageText, messageTime, is_read
@@ -73,17 +74,19 @@ Security: JwtFilter, SecurityConfig
 /api/v1/
 
 ## Auth Flow
-1. Frontend redirects user to USC SSO login page
-2. User authenticates and completes Duo MFA
-3. USC redirects back to backend with an SSO token
-4. AuthController.handleSSOCallback(token) receives it
-5. AuthService.handleSSOLogin() validates @usc.edu domain, creates user if new, issues JWT
-6. JWT returned to client, stored, sent as Bearer token on all subsequent requests
-7. JwtFilter validates token on every protected request
+1. User signs up at /signup with first name, last name, @usc.edu email, password
+2. AuthService.signup() validates the @usc.edu domain, BCrypt-hashes the password, generates a 6-digit code, stores it with 15-min expiry, and triggers EmailService.sendVerificationCode()
+3. User receives the code by email and enters it at /verify
+4. AuthService.verifyEmail() checks the code + expiry, marks isVerified=true, clears the code, and issues a JWT (auto-login)
+5. Returning users sign in at /login with email + password; AuthService.login() refuses unverified accounts and BCrypt-verifies the password before issuing a JWT
+6. JWT is sent as a Bearer token on all subsequent requests; JwtFilter validates on every protected request
+7. /auth/resend-verification regenerates and re-emails the code if the original expired
 
 ## AuthService Methods
-- handleSSOLogin(User)
-- createUserIfNotExists(User)
+- signup(SignupRequest) — validate USC email, hash password, send verification email
+- verifyEmail(VerifyEmailRequest) — validate code/expiry, mark isVerified, return JWT
+- login(LoginRequest) — refuse unverified accounts, BCrypt-verify password, return JWT
+- resendVerification(email) — regenerate code, re-email
 - validateUSCEmail(email)
 - isBannedUser(userID) — returns true if report count >= 10
 

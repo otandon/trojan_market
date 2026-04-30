@@ -50,28 +50,38 @@ export default function Navbar() {
         </Link>
 
         {isGuest ? (
-          <Link
-            to="/login"
-            className="rounded-full border border-usc-cardinal px-4 py-1.5 text-sm font-semibold text-usc-cardinal hover:bg-usc-cardinal hover:text-white"
-          >
-            Sign In
-          </Link>
+          <>
+            <Link
+              to="/login"
+              className="rounded-full border border-usc-cardinal px-4 py-1.5 text-sm font-semibold text-usc-cardinal hover:bg-usc-cardinal hover:text-white"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/signup"
+              className="rounded-full bg-usc-cardinal px-4 py-1.5 text-sm font-semibold text-white hover:bg-usc-cardinal/90"
+            >
+              Sign Up
+            </Link>
+          </>
         ) : (
           <Link
             to={`/users/${user.userID}`}
             aria-label="Profile"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-300"
           >
-            {(user.username || '?').slice(0, 2).toUpperCase()}
+            {((user.firstName?.[0] || '') + (user.lastName?.[0] || '') || (user.username || '?').slice(0, 2)).toUpperCase()}
           </Link>
         )}
 
-        <Link
-          to="/sell"
-          className="rounded-full bg-usc-cardinal px-4 py-1.5 text-sm font-semibold text-white hover:bg-usc-cardinal/90"
-        >
-          + Sell
-        </Link>
+        {!isGuest && (
+          <Link
+            to="/sell"
+            className="rounded-full bg-usc-cardinal px-4 py-1.5 text-sm font-semibold text-white hover:bg-usc-cardinal/90"
+          >
+            + Sell
+          </Link>
+        )}
 
         {!isGuest && (
           <button
