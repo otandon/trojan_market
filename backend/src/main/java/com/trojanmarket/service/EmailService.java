@@ -57,10 +57,13 @@ public class EmailService {
             mailSender.send(message);
             log.info("Sent verification code to {}", to);
         } catch (Exception e) {
-            // Surface SMTP failures to the caller so the user sees a real error
-            // instead of a silent "we sent an email" lie.
-            log.error("Failed to send verification email to {}", to, e);
-            throw new RuntimeException("Failed to send verification email: " + e.getMessage(), e);
+            // Don't crash signup if SMTP is unreachable (e.g. Railway blocks outbound
+            // 587 to Gmail). Log loudly so the code can be recovered from logs and
+            // returned to the user manually while a proper SMTP relay is wired up.
+            // TODO: switch to a transactional API (SendGrid/Mailgun/Resend) for prod
+            //       and re-throw here so failures are visible to the caller.
+            log.error("[EmailService] FAILED to send to {} — code is: {} (cause: {})",
+                    to, code, e.getMessage());
         }
     }
 }
