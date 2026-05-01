@@ -31,14 +31,32 @@ export default function Navbar() {
         </form>
 
         {!isGuest && (
-          <NavLink
-            to="/messages"
-            className={({ isActive }) =>
-              `text-sm font-semibold ${isActive ? 'text-usc-cardinal' : 'text-gray-700 hover:text-usc-cardinal'}`
-            }
-          >
-            Messages
-          </NavLink>
+          <>
+            <NavLink
+              to="/messages"
+              className={({ isActive }) =>
+                `text-sm font-semibold ${isActive ? 'text-usc-cardinal' : 'text-gray-700 hover:text-usc-cardinal'}`
+              }
+            >
+              Messages
+            </NavLink>
+            <NavLink
+              to="/saved"
+              className={({ isActive }) =>
+                `text-sm font-semibold ${isActive ? 'text-usc-cardinal' : 'text-gray-700 hover:text-usc-cardinal'}`
+              }
+            >
+              Saved
+            </NavLink>
+            <NavLink
+              to="/purchases"
+              className={({ isActive }) =>
+                `text-sm font-semibold ${isActive ? 'text-usc-cardinal' : 'text-gray-700 hover:text-usc-cardinal'}`
+              }
+            >
+              Purchases
+            </NavLink>
+          </>
         )}
 
         <Link

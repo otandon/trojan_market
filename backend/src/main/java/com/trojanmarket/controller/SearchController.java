@@ -44,6 +44,7 @@ public class SearchController {
 
     @GetMapping("/postings/{postID}")
     public ResponseEntity<PostingDetailDTO> postingDetail(@PathVariable Integer postID) {
-        return ResponseEntity.ok(searchManager.getPostingDetail(postID));
+        Integer viewerID = SecurityUtils.currentUserID();
+        return ResponseEntity.ok(searchManager.getPostingDetail(postID, viewerID));
     }
 }

@@ -7,6 +7,17 @@ import { apiErrorMessage, useToast } from '../components/Toast.jsx';
 
 const STEPS = ['Details', 'Photos', 'Review'];
 const CONDITIONS = ['NEW', 'LIKE_NEW', 'GOOD', 'FAIR', 'POOR'];
+const MAX_PHOTOS = 8;
+const MAX_PHOTO_BYTES = 1_000_000; // 1 MB
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function CreatePosting() {
   const { isGuest } = useAuth();
@@ -45,9 +56,28 @@ export default function CreatePosting() {
     });
   };
 
-  const onPhotos = (e) => {
+  const onPhotos = async (e) => {
     const files = Array.from(e.target.files || []);
-    update({ photos: files });
+    if (files.length === 0) return;
+
+    const oversize = files.find((f) => f.size > MAX_PHOTO_BYTES);
+    if (oversize) {
+      setErrors((p) => ({ ...p, photos: `"${oversize.name}" exceeds 1 MB. Resize before uploading.` }));
+      return;
+    }
+    if (files.length > MAX_PHOTOS) {
+      setErrors((p) => ({ ...p, photos: `You can upload up to ${MAX_PHOTOS} photos.` }));
+      return;
+    }
+
+    try {
+      const items = await Promise.all(
+        files.map(async (f) => ({ name: f.name, dataUrl: await readFileAsDataUrl(f) })),
+      );
+      update({ photos: items });
+    } catch {
+      setErrors((p) => ({ ...p, photos: 'Could not read one of the files. Try again.' }));
+    }
   };
 
   const validateDetails = () => {
@@ -97,6 +127,7 @@ export default function CreatePosting() {
         price: Number(form.price),
         // condition is client-side only for now (backend schema migration TODO).
         condition: form.condition,
+        photos: form.photos.map((p) => p.dataUrl),
       });
       toast.success('Listing published');
       navigate(`/listings/${res.postID}`);
@@ -208,7 +239,9 @@ export default function CreatePosting() {
 
         {step === 1 && (
           <div>
-            <label className="block text-sm font-semibold">Photos * (at least 1 required)</label>
+            <label className="block text-sm font-semibold">
+              Photos * (at least 1 required, up to {MAX_PHOTOS}, 1 MB each)
+            </label>
             <input
               type="file"
               accept="image/*"
@@ -220,15 +253,13 @@ export default function CreatePosting() {
               <span className="mt-1 block text-xs text-red-600">{errors.photos}</span>
             )}
             <div className="mt-3 grid grid-cols-4 gap-2">
-              {form.photos.map((f, i) => (
-                <div key={i} className="rounded border border-gray-200 p-2 text-xs">
-                  {f.name}
+              {form.photos.map((p, i) => (
+                <div key={i} className="overflow-hidden rounded border border-gray-200">
+                  <img src={p.dataUrl} alt={p.name} className="aspect-square w-full object-cover" />
+                  <div className="truncate px-2 py-1 text-xs text-gray-600">{p.name}</div>
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-xs text-gray-500">
-              Photo upload backend storage is a TODO — files will not persist yet.
-            </p>
           </div>
         )}
 

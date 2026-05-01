@@ -6,9 +6,11 @@ import com.trojanmarket.entity.ChatSession;
 import com.trojanmarket.entity.Message;
 import com.trojanmarket.entity.NotificationType;
 import com.trojanmarket.entity.Posting;
+import com.trojanmarket.entity.User;
 import com.trojanmarket.repository.ChatSessionRepository;
 import com.trojanmarket.repository.MessageRepository;
 import com.trojanmarket.repository.PostingRepository;
+import com.trojanmarket.repository.UserRepository;
 import com.trojanmarket.security.ForbiddenException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -23,6 +25,7 @@ public class ChatService {
     private final ChatSessionRepository sessionRepository;
     private final MessageRepository messageRepository;
     private final PostingRepository postingRepository;
+    private final UserRepository userRepository;
     private final AuthService authService;
     private final NotificationService notificationService;
     private final SimpMessagingTemplate messagingTemplate;
@@ -30,12 +33,14 @@ public class ChatService {
     public ChatService(ChatSessionRepository sessionRepository,
                        MessageRepository messageRepository,
                        PostingRepository postingRepository,
+                       UserRepository userRepository,
                        AuthService authService,
                        NotificationService notificationService,
                        SimpMessagingTemplate messagingTemplate) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
         this.postingRepository = postingRepository;
+        this.userRepository = userRepository;
         this.authService = authService;
         this.notificationService = notificationService;
         this.messagingTemplate = messagingTemplate;
@@ -51,7 +56,7 @@ public class ChatService {
         }
 
         return sessionRepository.findByPostIDAndBuyerID(postID, buyerID)
-                .map(s -> toSessionDTO(s, lookupTitle(s.getPostID())))
+                .map(this::enrichSessionDTO)
                 .orElseGet(() -> {
                     Posting posting = postingRepository.findById(postID)
                             .orElseThrow(() -> new EntityNotFoundException("Posting not found: " + postID));
@@ -63,7 +68,7 @@ public class ChatService {
                             .buyerID(buyerID)
                             .sellerID(posting.getSellerID())
                             .build();
-                    return toSessionDTO(sessionRepository.save(session), posting.getTitle());
+                    return enrichSessionDTO(sessionRepository.save(session));
                 });
     }
 
@@ -72,15 +77,28 @@ public class ChatService {
         java.util.Set<Integer> postIDs = sessions.stream()
                 .map(ChatSession::getPostID)
                 .collect(java.util.stream.Collectors.toSet());
-        java.util.Map<Integer, String> titlesByPost = postingRepository.findAllById(postIDs).stream()
-                .collect(java.util.stream.Collectors.toMap(Posting::getPostID, Posting::getTitle));
+        java.util.Set<Integer> userIDs = new java.util.HashSet<>();
+        for (ChatSession s : sessions) {
+            userIDs.add(s.getBuyerID());
+            userIDs.add(s.getSellerID());
+        }
+        java.util.Map<Integer, Posting> postingsByID = postingRepository.findAllById(postIDs).stream()
+                .collect(java.util.stream.Collectors.toMap(Posting::getPostID, p -> p));
+        java.util.Map<Integer, User> usersByID = userRepository.findAllById(userIDs).stream()
+                .collect(java.util.stream.Collectors.toMap(User::getUserID, u -> u));
         return sessions.stream()
-                .map(s -> toSessionDTO(s, titlesByPost.get(s.getPostID())))
+                .map(s -> toSessionDTO(s,
+                        postingsByID.get(s.getPostID()),
+                        usersByID.get(s.getBuyerID()),
+                        usersByID.get(s.getSellerID())))
                 .toList();
     }
 
-    private String lookupTitle(Integer postID) {
-        return postingRepository.findById(postID).map(Posting::getTitle).orElse(null);
+    private ChatSessionDTO enrichSessionDTO(ChatSession s) {
+        Posting posting = postingRepository.findById(s.getPostID()).orElse(null);
+        User buyer = userRepository.findById(s.getBuyerID()).orElse(null);
+        User seller = userRepository.findById(s.getSellerID()).orElse(null);
+        return toSessionDTO(s, posting, buyer, seller);
     }
 
     @Transactional
@@ -130,13 +148,17 @@ public class ChatService {
         return session;
     }
 
-    private ChatSessionDTO toSessionDTO(ChatSession s, String postTitle) {
+    private ChatSessionDTO toSessionDTO(ChatSession s, Posting posting, User buyer, User seller) {
         return ChatSessionDTO.builder()
                 .sessionID(s.getSessionID())
                 .postID(s.getPostID())
-                .postTitle(postTitle)
+                .postTitle(posting == null ? null : posting.getTitle())
                 .buyerID(s.getBuyerID())
+                .buyerFirstName(buyer == null ? null : buyer.getFirstName())
+                .buyerLastName(buyer == null ? null : buyer.getLastName())
                 .sellerID(s.getSellerID())
+                .sellerFirstName(seller == null ? null : seller.getFirstName())
+                .sellerLastName(seller == null ? null : seller.getLastName())
                 .createdAt(s.getCreatedAt())
                 .build();
     }

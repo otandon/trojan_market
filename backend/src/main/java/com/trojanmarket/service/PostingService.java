@@ -4,8 +4,10 @@ import com.trojanmarket.dto.CreatePostingRequest;
 import com.trojanmarket.dto.EditPostingRequest;
 import com.trojanmarket.entity.NotificationType;
 import com.trojanmarket.entity.Posting;
+import com.trojanmarket.entity.PostingPhoto;
 import com.trojanmarket.entity.PostingStatus;
 import com.trojanmarket.entity.Transaction;
+import com.trojanmarket.repository.PostingPhotoRepository;
 import com.trojanmarket.repository.PostingRepository;
 import com.trojanmarket.repository.TransactionRepository;
 import com.trojanmarket.security.ForbiddenException;
@@ -18,16 +20,21 @@ import java.util.List;
 @Service
 public class PostingService {
 
+    private static final int MAX_PHOTOS = 8;
+
     private final PostingRepository postingRepository;
+    private final PostingPhotoRepository photoRepository;
     private final TransactionRepository transactionRepository;
     private final AuthService authService;
     private final NotificationService notificationService;
 
     public PostingService(PostingRepository postingRepository,
+                          PostingPhotoRepository photoRepository,
                           TransactionRepository transactionRepository,
                           AuthService authService,
                           NotificationService notificationService) {
         this.postingRepository = postingRepository;
+        this.photoRepository = photoRepository;
         this.transactionRepository = transactionRepository;
         this.authService = authService;
         this.notificationService = notificationService;
@@ -53,6 +60,21 @@ public class PostingService {
                 .build();
 
         Posting saved = postingRepository.save(posting);
+
+        if (req.getPhotos() != null && !req.getPhotos().isEmpty()) {
+            if (req.getPhotos().size() > MAX_PHOTOS) {
+                throw new IllegalArgumentException("Listings may not have more than " + MAX_PHOTOS + " photos");
+            }
+            int order = 0;
+            for (String dataUrl : req.getPhotos()) {
+                if (dataUrl == null || dataUrl.isBlank()) continue;
+                photoRepository.save(PostingPhoto.builder()
+                        .postID(saved.getPostID())
+                        .photoData(dataUrl)
+                        .sortOrder(order++)
+                        .build());
+            }
+        }
 
         // TODO (task #7 — Notifications): NotificationService.notifyInterestedUsers(saved)
         //   for any user with a saved search or watched category.

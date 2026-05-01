@@ -106,22 +106,23 @@ export default function Messages() {
           {sessions.length === 0 && (
             <li className="p-4 text-sm text-gray-500">No conversations yet.</li>
           )}
-          {sessions.map((s) => (
-            <li key={s.sessionID}>
-              <button
-                type="button"
-                onClick={() => onSelect(s.sessionID)}
-                className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 ${
-                  s.sessionID === activeID ? 'bg-usc-cardinal/5' : ''
-                }`}
-              >
-                <div className="font-semibold text-gray-900">{s.postTitle || `Listing #${s.postID}`}</div>
-                <div className="text-xs text-gray-500">
-                  {s.buyerID === user?.userID ? `Seller #${s.sellerID}` : `Buyer #${s.buyerID}`}
-                </div>
-              </button>
-            </li>
-          ))}
+          {sessions.map((s) => {
+            const sellerName = [s.sellerFirstName, s.sellerLastName].filter(Boolean).join(' ') || `Seller #${s.sellerID}`;
+            return (
+              <li key={s.sessionID}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(s.sessionID)}
+                  className={`w-full px-4 py-3 text-left text-sm hover:bg-gray-50 ${
+                    s.sessionID === activeID ? 'bg-usc-cardinal/5' : ''
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900 truncate">{s.postTitle || `Listing #${s.postID}`}</div>
+                  <div className="truncate text-xs text-gray-500">Seller: {sellerName}</div>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </aside>
 
@@ -132,9 +133,9 @@ export default function Messages() {
               <div className="font-semibold">
                 {activeSession?.postTitle || (activeSession?.postID ? `Listing #${activeSession.postID}` : '—')}
               </div>
-              {activeSession?.postID && (
+              {activeSession && (
                 <div className="text-xs text-gray-500">
-                  Listing #{activeSession.postID}
+                  Seller: {[activeSession.sellerFirstName, activeSession.sellerLastName].filter(Boolean).join(' ') || `Seller #${activeSession.sellerID}`}
                 </div>
               )}
             </div>

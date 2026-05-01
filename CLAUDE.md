@@ -29,14 +29,15 @@ Waterfall process. Academic submission.
 - /frontend — React app (Vite scaffold)
 - /backend — Spring Boot Maven project (NOT Gradle)
 
-## Database: 9 Tables
-Users, Postings, ChatSessions, Messages, Transactions,
+## Database: 10 Tables
+Users, Postings, PostingPhotos, ChatSessions, Messages, Transactions,
 SavedPostings, Notifications, NotificationPreferences, Reviews
 
 ## Exact Column Names — match these precisely in all entity classes and queries
 
 Users: userID, username, password, firstName, lastName, email, isVerified, verificationCode, verificationCodeExpiresAt, review, reviewCount, is_active
 Postings: postID, sellerID, title, description, category, status, price, postTime, is_active
+PostingPhotos: photoID, postID, photoData, sortOrder, uploadedAt
 ChatSessions: sessionID, postID, buyerID, sellerID, created_at
 Messages: messageID, sessionID, senderID, messageText, messageTime, is_read
 Transactions: transactionID, postID, buyerID, sellerID, sale_price, transactionTime

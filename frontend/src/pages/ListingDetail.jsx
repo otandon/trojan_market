@@ -18,14 +18,19 @@ export default function ListingDetail() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savePending, setSavePending] = useState(false);
+  const [activePhoto, setActivePhoto] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     setError(null);
+    setActivePhoto(0);
     getPostingDetail(postID)
-      .then(setPosting)
+      .then((data) => {
+        setPosting(data);
+        setSaved(Boolean(data?.isSaved));
+      })
       .catch((e) => setError(apiErrorMessage(e, 'Listing not found')));
   }, [postID]);
 
@@ -77,26 +82,36 @@ export default function ListingDetail() {
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!posting) return <div className="p-6 text-gray-500">Loading...</div>;
 
+  const photos = posting.photos || [];
+  const main = photos[activePhoto];
+
   return (
     <div className="grid gap-6 p-6 md:grid-cols-2">
       <div>
-        <div className="flex aspect-square items-center justify-center rounded-xl bg-gray-100 text-gray-400">
-          {posting.photo ? (
-            <img src={posting.photo} alt={posting.title} className="h-full w-full rounded-xl object-cover" />
+        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-gray-100 text-gray-400">
+          {main ? (
+            <img src={main} alt={posting.title} className="h-full w-full object-cover" />
           ) : (
-            <span>📷 Main Photo</span>
+            <span>📷 No photo</span>
           )}
         </div>
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="flex aspect-square items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-xs text-gray-400"
-            >
-              📷
-            </div>
-          ))}
-        </div>
+        {photos.length > 1 && (
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {photos.map((src, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setActivePhoto(i)}
+                className={`flex aspect-square items-center justify-center overflow-hidden rounded-md border ${
+                  i === activePhoto ? 'border-usc-cardinal ring-2 ring-usc-cardinal' : 'border-gray-200'
+                } bg-gray-50`}
+                aria-label={`View photo ${i + 1}`}
+              >
+                <img src={src} alt={`${posting.title} thumbnail ${i + 1}`} className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div>

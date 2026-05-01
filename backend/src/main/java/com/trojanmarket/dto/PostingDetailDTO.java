@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -26,5 +27,8 @@ public class PostingDetailDTO {
     private Integer sellerID;
     private String sellerUsername;
     private Double sellerRating;
-    private String photo;
+    /** Ordered list of base64 data URLs. May be empty. */
+    private List<String> photos;
+    /** Whether the currently authenticated user has saved this listing. Null for guests. */
+    private Boolean isSaved;
 }

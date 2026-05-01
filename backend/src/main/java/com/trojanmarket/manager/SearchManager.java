@@ -61,7 +61,7 @@ public class SearchManager {
                     .postID(s.post.postID)
                     .title(s.post.title)
                     .price(s.post.price)
-                    .photo(null) // TODO: wire up photos table
+                    .photo(s.post.photo)
                     .sellerID(s.post.sellerID)
                     .sellerRating(s.post.sellerRating)
                     .status(s.post.status)
@@ -74,7 +74,7 @@ public class SearchManager {
         return Arrays.stream(Category.values()).map(Enum::name).toList();
     }
 
-    public PostingDetailDTO getPostingDetail(Integer postID) {
+    public PostingDetailDTO getPostingDetail(Integer postID, Integer viewerID) {
         String sql = """
                 SELECT p.postID, p.title, p.description, p.category, p.status, p.price, p.postTime,
                        p.sellerID, u.username AS sellerUsername,
@@ -96,6 +96,10 @@ public class SearchManager {
                 double rating = reviewCount == 0 ? 0.0 : (double) reviewSum / reviewCount;
 
                 Timestamp ts = rs.getTimestamp("postTime");
+
+                List<String> photos = fetchPhotos(conn, postID);
+                Boolean isSaved = viewerID == null ? null : isPostingSavedBy(conn, postID, viewerID);
+
                 return PostingDetailDTO.builder()
                         .postID(rs.getInt("postID"))
                         .title(rs.getString("title"))
@@ -107,7 +111,8 @@ public class SearchManager {
                         .sellerID(rs.getInt("sellerID"))
                         .sellerUsername(rs.getString("sellerUsername"))
                         .sellerRating(rating)
-                        .photo(null) // TODO: wire up photos table
+                        .photos(photos)
+                        .isSaved(isSaved)
                         .build();
             }
         } catch (SQLException e) {
@@ -132,10 +137,16 @@ public class SearchManager {
                                       BigDecimal minPrice,
                                       BigDecimal maxPrice,
                                       Integer excludeSellerID) {
+        // Subquery selects the lowest-sortOrder photo per posting so the list view
+        // gets a single thumbnail (not the entire photo array).
         StringBuilder sql = new StringBuilder("""
                 SELECT p.postID, p.title, p.description, p.price, p.status, p.postTime, p.sellerID,
                        u.username AS sellerUsername,
-                       u.review AS sellerReview, u.reviewCount AS sellerReviewCount
+                       u.review AS sellerReview, u.reviewCount AS sellerReviewCount,
+                       (SELECT ph.photoData FROM PostingPhotos ph
+                          WHERE ph.postID = p.postID
+                          ORDER BY ph.sortOrder ASC, ph.photoID ASC
+                          LIMIT 1) AS thumbnail
                 FROM Postings p
                 JOIN Users u ON u.userID = p.sellerID
                 WHERE p.is_active = TRUE AND p.status = 'AVAILABLE'
@@ -191,12 +202,38 @@ public class SearchManager {
                     int reviewSum = rs.getInt("sellerReview");
                     int reviewCount = rs.getInt("sellerReviewCount");
                     rp.sellerRating = reviewCount == 0 ? 0.0 : (double) reviewSum / reviewCount;
+                    rp.photo = rs.getString("thumbnail");
                     out.add(rp);
                 }
                 return out;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Search query failed", e);
+        }
+    }
+
+    private List<String> fetchPhotos(Connection conn, Integer postID) throws SQLException {
+        String sql = "SELECT photoData FROM PostingPhotos WHERE postID = ? ORDER BY sortOrder ASC, photoID ASC";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, postID);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<String> out = new ArrayList<>();
+                while (rs.next()) {
+                    out.add(rs.getString("photoData"));
+                }
+                return out;
+            }
+        }
+    }
+
+    private boolean isPostingSavedBy(Connection conn, Integer postID, Integer userID) throws SQLException {
+        String sql = "SELECT 1 FROM SavedPostings WHERE postID = ? AND userID = ? LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, postID);
+            ps.setInt(2, userID);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         }
     }
 
@@ -248,6 +285,7 @@ public class SearchManager {
         LocalDateTime postTime;
         Integer sellerID;
         Double sellerRating;
+        String photo;
     }
 
     private static final class Scored {

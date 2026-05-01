@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -31,5 +32,11 @@ public class CreatePostingRequest {
     @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal price;
 
-    // TODO: photos list, condition — extend schema (photos table, condition column) and wire up.
+    /**
+     * Photos as base64 data URLs (e.g. "data:image/jpeg;base64,..."). Order in the
+     * list defines display order on the listing detail page.
+     */
+    private List<String> photos;
+
+    // TODO: condition column — extend the schema and persist this.
 }
