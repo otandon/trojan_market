@@ -8,7 +8,7 @@ import { apiErrorMessage, useToast } from '../components/Toast.jsx';
 const STEPS = ['Details', 'Photos', 'Review'];
 const CONDITIONS = ['NEW', 'LIKE_NEW', 'GOOD', 'FAIR', 'POOR'];
 const MAX_PHOTOS = 8;
-const MAX_PHOTO_BYTES = 1_000_000; // 1 MB
+const MAX_PHOTO_BYTES = 2_500_000; // 2.5 MB — fits an unedited iPhone photo
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -62,7 +62,7 @@ export default function CreatePosting() {
 
     const oversize = files.find((f) => f.size > MAX_PHOTO_BYTES);
     if (oversize) {
-      setErrors((p) => ({ ...p, photos: `"${oversize.name}" exceeds 1 MB. Resize before uploading.` }));
+      setErrors((p) => ({ ...p, photos: `"${oversize.name}" exceeds 2.5 MB. Resize before uploading.` }));
       return;
     }
     if (files.length > MAX_PHOTOS) {
@@ -240,7 +240,7 @@ export default function CreatePosting() {
         {step === 1 && (
           <div>
             <label className="block text-sm font-semibold">
-              Photos * (at least 1 required, up to {MAX_PHOTOS}, 1 MB each)
+              Photos * (at least 1 required, up to {MAX_PHOTOS}, 2.5 MB each)
             </label>
             <input
               type="file"
