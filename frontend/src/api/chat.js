@@ -14,3 +14,8 @@ export async function getHistory(sessionID) {
   const { data } = await api.get(`/chat/sessions/${sessionID}/messages`);
   return data;
 }
+
+export async function getSessionsForPosting(postID) {
+  const { data } = await api.get(`/chat/sessions/post/${postID}`);
+  return data;
+}

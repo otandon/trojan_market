@@ -70,6 +70,48 @@ public class SearchManager {
         return out;
     }
 
+    /**
+     * Returns the seller's own listings (all statuses, only active=TRUE) as
+     * summaries with thumbnails, used by the seller's profile page.
+     */
+    public List<PostingSummaryDTO> getPostingsForSeller(Integer sellerID) {
+        String sql = """
+                SELECT p.postID, p.title, p.price, p.status, p.postTime, p.sellerID,
+                       u.review AS sellerReview, u.reviewCount AS sellerReviewCount,
+                       (SELECT ph.photoData FROM PostingPhotos ph
+                          WHERE ph.postID = p.postID
+                          ORDER BY ph.sortOrder ASC, ph.photoID ASC
+                          LIMIT 1) AS thumbnail
+                FROM Postings p
+                JOIN Users u ON u.userID = p.sellerID
+                WHERE p.sellerID = ? AND p.is_active = TRUE
+                ORDER BY p.postTime DESC
+                """;
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, sellerID);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<PostingSummaryDTO> out = new ArrayList<>();
+                while (rs.next()) {
+                    int reviewSum = rs.getInt("sellerReview");
+                    int reviewCount = rs.getInt("sellerReviewCount");
+                    out.add(PostingSummaryDTO.builder()
+                            .postID(rs.getInt("postID"))
+                            .title(rs.getString("title"))
+                            .price(rs.getBigDecimal("price"))
+                            .photo(rs.getString("thumbnail"))
+                            .sellerID(rs.getInt("sellerID"))
+                            .sellerRating(reviewCount == 0 ? 0.0 : (double) reviewSum / reviewCount)
+                            .status(rs.getString("status"))
+                            .build());
+                }
+                return out;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to fetch postings for seller", e);
+        }
+    }
+
     public List<String> getCategories() {
         return Arrays.stream(Category.values()).map(Enum::name).toList();
     }
@@ -78,6 +120,7 @@ public class SearchManager {
         String sql = """
                 SELECT p.postID, p.title, p.description, p.category, p.status, p.price, p.postTime,
                        p.sellerID, u.username AS sellerUsername,
+                       u.firstName AS sellerFirstName, u.lastName AS sellerLastName,
                        u.review AS sellerReview, u.reviewCount AS sellerReviewCount
                 FROM Postings p
                 JOIN Users u ON u.userID = p.sellerID
@@ -110,6 +153,8 @@ public class SearchManager {
                         .postTime(ts == null ? null : ts.toLocalDateTime())
                         .sellerID(rs.getInt("sellerID"))
                         .sellerUsername(rs.getString("sellerUsername"))
+                        .sellerFirstName(rs.getString("sellerFirstName"))
+                        .sellerLastName(rs.getString("sellerLastName"))
                         .sellerRating(rating)
                         .photos(photos)
                         .isSaved(isSaved)

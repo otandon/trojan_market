@@ -46,6 +46,12 @@ public class ChatController {
         return ResponseEntity.ok(chatService.getMySessions(userID));
     }
 
+    @GetMapping("/sessions/post/{postID}")
+    public ResponseEntity<List<ChatSessionDTO>> getSessionsForPosting(@PathVariable Integer postID) {
+        Integer sellerID = SecurityUtils.requireCurrentUserID();
+        return ResponseEntity.ok(chatService.getSessionsForPosting(postID, sellerID));
+    }
+
     @GetMapping("/sessions/{sessionID}/messages")
     public ResponseEntity<List<MessageDTO>> getHistory(@PathVariable Integer sessionID) {
         Integer userID = SecurityUtils.requireCurrentUserID();

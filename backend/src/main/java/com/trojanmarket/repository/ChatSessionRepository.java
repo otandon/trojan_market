@@ -13,4 +13,6 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, Intege
     Optional<ChatSession> findByPostIDAndBuyerID(Integer postID, Integer buyerID);
 
     List<ChatSession> findByBuyerIDOrSellerID(Integer buyerID, Integer sellerID);
+
+    List<ChatSession> findByPostIDAndSellerID(Integer postID, Integer sellerID);
 }

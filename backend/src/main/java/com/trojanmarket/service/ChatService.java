@@ -72,6 +72,29 @@ public class ChatService {
                 });
     }
 
+    /**
+     * All chat sessions a seller has on a given listing — used by the seller's
+     * "Mark as sold" buyer picker. Throws 403 if the caller isn't the listing's seller.
+     */
+    public List<ChatSessionDTO> getSessionsForPosting(Integer postID, Integer sellerID) {
+        Posting posting = postingRepository.findById(postID)
+                .orElseThrow(() -> new EntityNotFoundException("Posting not found: " + postID));
+        if (!posting.getSellerID().equals(sellerID)) {
+            throw new ForbiddenException("Only the seller can view chats for this listing");
+        }
+        List<ChatSession> sessions = sessionRepository.findByPostIDAndSellerID(postID, sellerID);
+        java.util.Set<Integer> userIDs = new java.util.HashSet<>();
+        for (ChatSession s : sessions) {
+            userIDs.add(s.getBuyerID());
+            userIDs.add(s.getSellerID());
+        }
+        java.util.Map<Integer, User> usersByID = userRepository.findAllById(userIDs).stream()
+                .collect(java.util.stream.Collectors.toMap(User::getUserID, u -> u));
+        return sessions.stream()
+                .map(s -> toSessionDTO(s, posting, usersByID.get(s.getBuyerID()), usersByID.get(s.getSellerID())))
+                .toList();
+    }
+
     public List<ChatSessionDTO> getMySessions(Integer userID) {
         List<ChatSession> sessions = sessionRepository.findByBuyerIDOrSellerID(userID, userID);
         java.util.Set<Integer> postIDs = sessions.stream()

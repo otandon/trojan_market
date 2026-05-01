@@ -26,6 +26,8 @@ public class PostingDetailDTO {
     private LocalDateTime postTime;
     private Integer sellerID;
     private String sellerUsername;
+    private String sellerFirstName;
+    private String sellerLastName;
     private Double sellerRating;
     /** Ordered list of base64 data URLs. May be empty. */
     private List<String> photos;

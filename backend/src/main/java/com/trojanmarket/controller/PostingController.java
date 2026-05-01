@@ -2,7 +2,9 @@ package com.trojanmarket.controller;
 
 import com.trojanmarket.dto.CreatePostingRequest;
 import com.trojanmarket.dto.EditPostingRequest;
+import com.trojanmarket.dto.PostingSummaryDTO;
 import com.trojanmarket.entity.Posting;
+import com.trojanmarket.manager.SearchManager;
 import com.trojanmarket.security.SecurityUtils;
 import com.trojanmarket.service.PostingService;
 import jakarta.validation.Valid;
@@ -23,9 +25,11 @@ import java.util.List;
 public class PostingController {
 
     private final PostingService postingService;
+    private final SearchManager searchManager;
 
-    public PostingController(PostingService postingService) {
+    public PostingController(PostingService postingService, SearchManager searchManager) {
         this.postingService = postingService;
+        this.searchManager = searchManager;
     }
 
     @PostMapping
@@ -49,8 +53,8 @@ public class PostingController {
     }
 
     @GetMapping("/mine")
-    public ResponseEntity<List<Posting>> myPostings() {
+    public ResponseEntity<List<PostingSummaryDTO>> myPostings() {
         Integer sellerID = SecurityUtils.requireCurrentUserID();
-        return ResponseEntity.ok(postingService.getActiveByseller(sellerID));
+        return ResponseEntity.ok(searchManager.getPostingsForSeller(sellerID));
     }
 }
