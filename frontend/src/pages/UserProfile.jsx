@@ -2,7 +2,18 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import PostingCard from '../components/PostingCard.jsx';
 import { getMyPostings } from '../api/postings.js';
+import { getSellerReviews } from '../api/reviews.js';
 import { useAuth } from '../auth/AuthContext.jsx';
+
+function Stars({ rating }) {
+  const r = Math.max(0, Math.min(5, Math.round(Number(rating) || 0)));
+  return (
+    <span className="text-usc-gold" aria-label={`${r} out of 5 stars`}>
+      {'★'.repeat(r)}
+      <span className="text-gray-300">{'★'.repeat(5 - r)}</span>
+    </span>
+  );
+}
 
 export default function UserProfile() {
   const { userID } = useParams();
@@ -11,6 +22,8 @@ export default function UserProfile() {
 
   const [tab, setTab] = useState('listings');
   const [postings, setPostings] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   useEffect(() => {
     if (!isMe) {
@@ -20,6 +33,20 @@ export default function UserProfile() {
     }
     getMyPostings().then(setPostings).catch(() => setPostings([]));
   }, [isMe, userID]);
+
+  useEffect(() => {
+    if (tab !== 'reviews') return;
+    setReviewsLoading(true);
+    getSellerReviews(userID)
+      .then(setReviews)
+      .catch(() => setReviews([]))
+      .finally(() => setReviewsLoading(false));
+  }, [tab, userID]);
+
+  const reviewCount = reviews.length;
+  const avg = reviewCount === 0
+    ? 0
+    : reviews.reduce((acc, r) => acc + Number(r.rating || 0), 0) / reviewCount;
 
   return (
     <div className="p-6">
@@ -31,15 +58,11 @@ export default function UserProfile() {
           <div>
             <h1 className="text-xl font-semibold">{isMe ? user?.username : `User #${userID}`}</h1>
             <div className="text-xs text-gray-500">Member of Trojan Market</div>
-            <div className="mt-1 text-sm">
-              <span className="text-usc-gold">★★★★☆</span>{' '}
-              <span className="text-gray-600">— ratings coming soon</span>
-              {isMe && user?.isVerified && (
-                <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
-                  ✓ Verified USC
-                </span>
-              )}
-            </div>
+            {isMe && user?.isVerified && (
+              <span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
+                ✓ Verified USC
+              </span>
+            )}
           </div>
         </div>
         <button
@@ -80,7 +103,46 @@ export default function UserProfile() {
             </div>
           )
         ) : (
-          <div className="text-sm text-gray-500">Reviews list — TODO once /reviews endpoint lands.</div>
+          <div>
+            {reviewsLoading ? (
+              <div className="text-sm text-gray-500">Loading reviews...</div>
+            ) : reviewCount === 0 ? (
+              <div className="text-sm text-gray-500">No reviews yet.</div>
+            ) : (
+              <>
+                <div className="mb-4 flex items-center gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm">
+                  <Stars rating={avg} />
+                  <span className="font-semibold">{avg.toFixed(1)}</span>
+                  <span className="text-gray-500">· {reviewCount} review{reviewCount === 1 ? '' : 's'}</span>
+                </div>
+                <ul className="space-y-3">
+                  {reviews.map((r) => {
+                    const reviewer = [r.reviewerFirstName, r.reviewerLastName].filter(Boolean).join(' ')
+                      || `User #${r.reviewerID}`;
+                    return (
+                      <li key={r.reviewID} className="rounded-md border border-gray-200 bg-white p-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <div>
+                            <Stars rating={r.rating} />
+                            <span className="ml-2 font-semibold">{reviewer}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {r.reviewTime ? new Date(r.reviewTime).toLocaleDateString() : ''}
+                          </span>
+                        </div>
+                        {r.postTitle && (
+                          <div className="mt-1 text-xs text-gray-500">For: {r.postTitle}</div>
+                        )}
+                        {r.comment && (
+                          <p className="mt-2 whitespace-pre-line text-sm text-gray-800">{r.comment}</p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

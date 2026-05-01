@@ -161,11 +161,13 @@ public class StatsManager {
                 SELECT t.transactionID, t.postID, t.buyerID, t.sellerID, t.sale_price, t.transactionTime,
                        p.title AS postTitle,
                        buyer.username  AS buyerUsername,
-                       seller.username AS sellerUsername
+                       seller.username AS sellerUsername,
+                       r.reviewID      AS reviewID
                 FROM Transactions t
                 JOIN Postings p   ON p.postID  = t.postID
                 JOIN Users buyer  ON buyer.userID  = t.buyerID
                 JOIN Users seller ON seller.userID = t.sellerID
+                LEFT JOIN Reviews r ON r.transactionID = t.transactionID
                 """ + whereClause + " ORDER BY t.transactionTime DESC";
 
         try (Connection conn = dataSource.getConnection();
@@ -175,6 +177,7 @@ public class StatsManager {
                 List<TransactionDTO> out = new ArrayList<>();
                 while (rs.next()) {
                     Timestamp ts = rs.getTimestamp("transactionTime");
+                    int reviewID = rs.getInt("reviewID");
                     out.add(TransactionDTO.builder()
                             .transactionID(rs.getInt("transactionID"))
                             .postID(rs.getInt("postID"))
@@ -185,6 +188,7 @@ public class StatsManager {
                             .sellerUsername(rs.getString("sellerUsername"))
                             .salePrice(rs.getBigDecimal("sale_price"))
                             .transactionTime(ts == null ? null : ts.toLocalDateTime())
+                            .reviewID(rs.wasNull() ? null : reviewID)
                             .build());
                 }
                 return out;

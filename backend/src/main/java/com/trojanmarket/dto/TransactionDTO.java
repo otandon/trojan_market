@@ -25,4 +25,6 @@ public class TransactionDTO {
     private String sellerUsername;
     private BigDecimal salePrice;
     private LocalDateTime transactionTime;
+    /** Set if the buyer has already reviewed this transaction. Null otherwise. */
+    private Integer reviewID;
 }
