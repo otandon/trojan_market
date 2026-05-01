@@ -53,10 +53,16 @@ export default function UserProfile() {
       <header className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-200 text-lg font-bold text-gray-700">
-            {(user?.username || 'U').slice(0, 2).toUpperCase()}
+            {isMe
+              ? (((user?.firstName?.[0] || '') + (user?.lastName?.[0] || '')) || (user?.username || 'U').slice(0, 2)).toUpperCase()
+              : 'U'}
           </div>
           <div>
-            <h1 className="text-xl font-semibold">{isMe ? user?.username : `User #${userID}`}</h1>
+            <h1 className="text-xl font-semibold">
+              {isMe
+                ? ([user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.username)
+                : `User #${userID}`}
+            </h1>
             <div className="text-xs text-gray-500">Member of Trojan Market</div>
             {isMe && user?.isVerified && (
               <span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800">
