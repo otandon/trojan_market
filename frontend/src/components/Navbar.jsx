@@ -59,14 +59,6 @@ export default function Navbar() {
           </>
         )}
 
-        <Link
-          to="/notifications"
-          aria-label="Notifications"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-usc-gold/30 text-lg text-gray-700 hover:bg-usc-gold/50"
-        >
-          🔔
-        </Link>
-
         {isGuest ? (
           <>
             <Link
