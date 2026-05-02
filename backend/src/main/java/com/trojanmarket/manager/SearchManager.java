@@ -17,9 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Direct-JDBC search manager. Implements the two-phase search algorithm from CLAUDE.md:
@@ -45,12 +43,12 @@ public class SearchManager {
             throw new IllegalArgumentException("minPrice cannot exceed maxPrice");
         }
 
-        List<String> keywords = cleanKeywords(query);
+        List<String> keywords = SearchKeywords.clean(query);
         List<RawPost> raw = sqlRetrieve(keywords, category, minPrice, maxPrice, excludeSellerID);
 
         List<Scored> scored = new ArrayList<>(raw.size());
         for (RawPost rp : raw) {
-            scored.add(new Scored(rp, score(rp, keywords)));
+            scored.add(new Scored(rp, SearchKeywords.score(rp.title, rp.description, keywords)));
         }
 
         scored.sort(comparator(sortBy));
@@ -167,16 +165,6 @@ public class SearchManager {
 
     // --- internals ----------------------------------------------------------
 
-    private List<String> cleanKeywords(String query) {
-        if (query == null || query.isBlank()) {
-            return List.of();
-        }
-        String cleaned = query.trim().toLowerCase().replaceAll("[^a-z0-9 ]", " ");
-        return Arrays.stream(cleaned.split("\\s+"))
-                .filter(s -> !s.isBlank())
-                .toList();
-    }
-
     private List<RawPost> sqlRetrieve(List<String> keywords,
                                       String category,
                                       BigDecimal minPrice,
@@ -280,28 +268,6 @@ public class SearchManager {
                 return rs.next();
             }
         }
-    }
-
-    private int score(RawPost p, List<String> keywords) {
-        if (keywords.isEmpty()) {
-            return 0;
-        }
-        String titleLower = p.title == null ? "" : p.title.toLowerCase();
-        String descLower = p.description == null ? "" : p.description.toLowerCase();
-        Set<String> titleWords = new HashSet<>(Arrays.asList(titleLower.split("\\W+")));
-
-        int total = 0;
-        for (String kw : keywords) {
-            if (titleWords.contains(kw)) {
-                total += 3;
-            } else if (titleLower.contains(kw)) {
-                total += 2;
-            }
-            if (descLower.contains(kw)) {
-                total += 1;
-            }
-        }
-        return total;
     }
 
     private Comparator<Scored> comparator(String sortBy) {

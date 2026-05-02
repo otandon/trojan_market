@@ -29,7 +29,9 @@ jobs:
       - name: Test
         run: mvn -B test
         env:
-          # Tests run without a live DB; provide stub values so @Value resolves.
+          # @ActiveProfiles("test") loads application-test.properties which
+          # uses H2 + a test JWT secret. Spring Boot still resolves the env-var
+          # placeholders against the OS env, so we set JWT_SECRET to satisfy
+          # the placeholder in application.properties even though the test
+          # profile overrides it.
           JWT_SECRET: ci-only-secret-must-be-at-least-32-bytes-long
-          USC_SSO_ENTITY_ID: urn:ci
-          USC_SSO_IDP_METADATA_URL: http://localhost/idp
